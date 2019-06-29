@@ -1,1 +1,19 @@
-<p>home works!</p>
+<div class="period-container">
+    <mat-form-field>
+        <input matInput [min]="minPeriod" [max]="maxPeriod" [matDatepicker]="minPicker" placeholder="De"
+            [formControl]="minPeriodForm">
+        <mat-datepicker-toggle matSuffix [for]="minPicker"></mat-datepicker-toggle>
+        <mat-datepicker #minPicker startView="multi-year" (monthSelected)="onSelectedMonth($event, minPicker)">
+        </mat-datepicker>
+    </mat-form-field>
+    <mat-divider [vertical]="true"></mat-divider>
+    <mat-form-field>
+        <input matInput [min]="minPeriod" [max]="maxPeriod" [matDatepicker]="maxPicker" placeholder="À"
+            [formControl]="maxPeriodForm">
+        <mat-datepicker-toggle matSuffix [for]="maxPicker"></mat-datepicker-toggle>
+        <mat-datepicker #maxPicker startView="multi-year" (monthSelected)="onSelectedMonth($event, maxPicker, false)">
+        </mat-datepicker>
+    </mat-form-field>
+</div>
+<canvas baseChart width="400" height="400" [datasets]="datasets" [labels]="labels" [legend]="true" [colors]="colors"
+    [chartType]="'line'"></canvas>
