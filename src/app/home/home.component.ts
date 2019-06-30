@@ -1,16 +1,20 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { VolumeService } from '../core/services/volume.service';
-import { takeUntil, flatMap, tap } from 'rxjs/operators';
+import { takeUntil, tap } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { Category } from '../shared/models/category.model';
-import { ChartDataSets } from 'chart.js';
+
+import { ChartDataSets, ChartOptions } from 'chart.js';
 import { Label, Color } from 'ng2-charts';
+import * as pluginAnnotations from 'chartjs-plugin-annotation';
+
 import { Volume } from '../shared/models/volume.model';
 import { FormControl } from '@angular/forms';
 import { MatDatepicker } from '@angular/material/datepicker';
 
 import { Moment } from 'moment';
 import * as moment from 'moment';
+import * as Chart from 'chart.js';
 
 @Component({
   selector: 'app-home',
@@ -25,6 +29,41 @@ export class HomeComponent implements OnInit, OnDestroy {
   public datasets: ChartDataSets[];
   public labels: Label[];
   public colors: Color[];
+  public plugins: Chart.ChartPluginsOptions;
+  public options: (ChartOptions & { annotation: any }) = {
+    responsive: true,
+    scales: {},
+    annotation: {
+      annotations: [
+        {
+          type: 'line',
+          mode: 'horizontal',
+          scaleID: 'y-axis-0',
+          value: 0,
+          borderColor: '#4BC0C0',
+          borderWidth: 2,
+          label: {
+            enabled: true,
+            fontColor: 'white',
+            content: 'Volume moyen pour la période actuelle'
+          }
+        },
+        {
+          type: 'line',
+          mode: 'horizontal',
+          scaleID: 'y-axis-0',
+          value: 0,
+          borderColor: '#fed976',
+          borderWidth: 2,
+          label: {
+            enabled: true,
+            fontColor: 'white',
+            content: 'Volume moyen par rapport à l\'année dernière'
+          }
+        },
+      ],
+    },
+  };
 
   public defaultCategory: Category;  // Root by default
   public selectedCategory: Category;
@@ -53,17 +92,19 @@ export class HomeComponent implements OnInit, OnDestroy {
         pointHoverBorderColor: 'rgb(255, 99, 132)',
       }
     ];
+    this.plugins = [pluginAnnotations];
 
     this.minPeriodForm = new FormControl(moment());
     this.maxPeriodForm = new FormControl(moment());
     this.selectedMinPeriod = moment();
     this.selectedMaxPeriod = moment();
 
+    this.selectedVolumes = [];
+
     this.initChart();
   }
 
   ngOnInit() {
-    console.log('HomeComponent');
     this.volumeService.getCategory()
       .pipe(
         takeUntil(this.unsubscribe),
@@ -85,7 +126,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   /**
    * Method to get the volumes associated with a category
-   * 
+   *
    * @param category
    */
   private selectVolumes(category: Category) {
@@ -106,15 +147,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.selectedMinPeriod = moment(volumesTimespans[volumesTimespans.length - 13]); // For the first time is set the previous months
         this.selectedMaxPeriod = this.maxPeriod;
 
-        const selectedPeriodVolumes = this.selectedVolumes
-          .filter((v) => {
-            return moment(v.timespan).isBetween(this.selectedMinPeriod, this.selectedMaxPeriod, 'month', '[]');
-          });
-
-        const data = selectedPeriodVolumes.map((v) => v.volume);
-        const labels = selectedPeriodVolumes.map((v) => v.timespan);
-
-        this.initChart(data, category.name, labels);
+        this.initChart(category.name);
       });
   }
 
@@ -125,9 +158,15 @@ export class HomeComponent implements OnInit, OnDestroy {
    * @param currentLabel Selected category name that appear at the top of the chart
    * @param labels Timespans set in X axis of the chart
    */
-  private initChart(data: number[] = [],
-                    currentCategoryName: string = '',
-                    labels: Label[] = []) {
+  private initChart(currentCategoryName: string = '') {
+    const selectedPeriodVolumes = this.selectedVolumes
+      .filter((v) => {
+        return moment(v.timespan).isBetween(this.selectedMinPeriod, this.selectedMaxPeriod, 'month', '[]');
+      });
+
+    const data = selectedPeriodVolumes.map((v) => v.volume);
+    const labels = selectedPeriodVolumes.map((v) => v.timespan);
+
     this.datasets = [
       { data, label: currentCategoryName }
     ];
@@ -135,6 +174,8 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     this.minPeriodForm.setValue(this.selectedMinPeriod);
     this.maxPeriodForm.setValue(this.selectedMaxPeriod);
+
+    this.updateChartOptions();
   }
 
   /**
@@ -151,16 +192,50 @@ export class HomeComponent implements OnInit, OnDestroy {
       this.selectedMaxPeriod = period;
     }
 
+    this.initChart(this.selectedCategory.name);
+    datepicker.close();
+  }
+
+  /**
+   * Method for chart options update.
+   * Used when we want to refresh the average lines render in the chart
+   */
+  private updateChartOptions() {
+    const selectedPeriodVolumesAverage = this.getAverageVolumes(this.selectedMinPeriod, this.selectedMaxPeriod);
+    const lastYearMinPeriod = moment(this.selectedMinPeriod).subtract(1, 'year');
+    const lastYearMaxPeriod = moment(this.selectedMaxPeriod).subtract(1, 'year');
+    const lastYearPeriodVolumesAverage = this.getAverageVolumes(lastYearMinPeriod, lastYearMaxPeriod);
+    console.log(`lastYear: ${lastYearMinPeriod} ${lastYearMaxPeriod} ${lastYearPeriodVolumesAverage}`);
+
+    // Workaround because of chartjs-annotations issue that involves annotations are not updated.
+    Chart.helpers.each(Chart.instances, (instance) => {
+      console.log(instance);
+      const currentPeriod = instance.options.annotation.annotations[0];
+      currentPeriod.value = selectedPeriodVolumesAverage;
+      currentPeriod.label.content = `Volume moyen entre ${this.selectedMinPeriod.format('L')} et ${this.selectedMaxPeriod.format('L')}`;
+      const lastYearPeriod = instance.options.annotation.annotations[1];
+      lastYearPeriod.value = lastYearPeriodVolumesAverage;
+      lastYearPeriod.label.content = `Volume moyen entre ${lastYearMinPeriod.format('L')} et ${lastYearMaxPeriod.format('L')}`;
+    });
+  }
+
+  private getAverageVolumes(minPeriod: Moment, maxPeriod) {
     const selectedPeriodVolumes = this.selectedVolumes.filter((v) => {
-      return moment(v.timespan).isBetween(this.selectedMinPeriod, this.selectedMaxPeriod, 'month', '[]');
+      return moment(v.timespan).isBetween(minPeriod, maxPeriod, 'month', '[]');
     });
 
-    const data = selectedPeriodVolumes.map((v) => v.volume);
-    const labels = selectedPeriodVolumes.map((v) => v.timespan);
+    if (minPeriod.isBefore(maxPeriod) && selectedPeriodVolumes.length > 0) {
+      const periodVolumesSum = selectedPeriodVolumes
+        .map((v) => v.volume)
+        .reduce((volumeA, volumeB) => volumeA + volumeB);
 
-    this.initChart(data, this.selectedCategory.name, labels);
+      const monthsCount = this.selectedMaxPeriod.diff(this.selectedMinPeriod, 'month', true) + 1;
 
-    datepicker.close();
+      console.log(`getAverageVolumes() periodVolumesSum: ${periodVolumesSum} ${monthsCount}`);
+      return Math.round(periodVolumesSum / monthsCount);
+    }
+
+    return 0;
   }
 
   ngOnDestroy() {

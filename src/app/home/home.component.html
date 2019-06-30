@@ -27,5 +27,5 @@
         </mat-form-field>
     </div>
 </div>
-<canvas baseChart width="400" height="400" [datasets]="datasets" [labels]="labels" [legend]="true" [colors]="colors"
+<canvas baseChart [datasets]="datasets" [labels]="labels"  [colors]="colors" [options]="options" [plugins]="plugins"
     [chartType]="'line'"></canvas>
