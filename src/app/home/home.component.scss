@@ -5,25 +5,46 @@
     flex-direction: column;
     align-items: center;
 
-    .period-container {
+    .header {
         width: 100%;
+        position: relative;
         display: flex;
-        flex-direction: row;
-        justify-content: flex-end;
-        align-items: center;
-
-        mat-form-field {
-            width: 100px;
+        align-items: center; 
+        
+        .category-container {
+            display: flex;
         }
-
-        mat-divider {
-            height: 20px;
-            margin: 10px;
+    
+        .period-container {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-end;
+            align-items: center;
+    
+            mat-form-field {
+                width: 100px;
+            }
         }
+    }
+
+    mat-divider {
+        height: 20px;
+        margin: 10px;
     }
 
     canvas {
         height: auto !important;
         width: 80% !important;
+    }
+
+    .tree-invisible {
+        display: none;
+    }
+      
+    ul, li {
+        margin-top: 0;
+        margin-bottom: 0;
+        list-style-type: none;
     }
 }

@@ -26,6 +26,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   public labels: Label[];
   public colors: Color[];
 
+  public defaultCategory: Category;  // Root by default
   public selectedCategory: Category;
   public selectedVolumes: Volume[];
 
@@ -66,33 +67,55 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.volumeService.getCategory()
       .pipe(
         takeUntil(this.unsubscribe),
-        flatMap((category) => {
+        tap((category) => {
+          this.defaultCategory = category;
           this.selectedCategory = category;
-          return this.volumeService.getVolumes(category.id);
+          this.selectVolumes(this.defaultCategory);
         }),
-        tap((volumes) => {
-          console.log(`volumes: ${JSON.stringify(volumes)}`);
-          this.selectedVolumes = volumes;
-          const volumesTimespans = this.selectedVolumes.map((v) => v.timespan);
-
-          this.minPeriod = moment(volumesTimespans[0]); // Set the oldest timespan
-          this.maxPeriod = moment(volumesTimespans[volumesTimespans.length - 1]); // Set the most recent timespan
-
-          this.selectedMinPeriod = moment(volumesTimespans[volumesTimespans.length - 13]); // For the first time is set the previous months
-          this.selectedMaxPeriod = this.maxPeriod;
-
-          const selectedPeriodVolumes = this.selectedVolumes
-            .filter((v) => {
-              return moment(v.timespan).isBetween(this.selectedMinPeriod, this.selectedMaxPeriod, 'month', '[]');
-            });
-
-          const data = selectedPeriodVolumes.map((v) => v.volume);
-          const labels = selectedPeriodVolumes.map((v) => v.timespan);
-
-          this.initChart(data, this.selectedCategory.name, labels);
-        })
       )
       .subscribe();
+
+    this.volumeService.getSelectedCategory()
+      .pipe(takeUntil(this.unsubscribe))
+      .subscribe((category) => {
+        this.selectedCategory = category;
+        this.selectVolumes(category);
+      });
+  }
+
+  /**
+   * Method to get the volumes associated with a category
+   * 
+   * @param category
+   */
+  private selectVolumes(category: Category) {
+    console.log('selectVolumes ' + category.id);
+
+    this.volumeService.getVolumes(category.id)
+      .pipe(takeUntil(this.unsubscribe))
+      .subscribe((volumes) => {
+        console.log(`volumes: ${JSON.stringify(volumes)}`);
+        this.selectedCategory = category;
+        this.selectedVolumes = volumes;
+
+        const volumesTimespans = this.selectedVolumes.map((v) => v.timespan);
+
+        this.minPeriod = moment(volumesTimespans[0]); // Set the oldest timespan
+        this.maxPeriod = moment(volumesTimespans[volumesTimespans.length - 1]); // Set the most recent timespan
+
+        this.selectedMinPeriod = moment(volumesTimespans[volumesTimespans.length - 13]); // For the first time is set the previous months
+        this.selectedMaxPeriod = this.maxPeriod;
+
+        const selectedPeriodVolumes = this.selectedVolumes
+          .filter((v) => {
+            return moment(v.timespan).isBetween(this.selectedMinPeriod, this.selectedMaxPeriod, 'month', '[]');
+          });
+
+        const data = selectedPeriodVolumes.map((v) => v.volume);
+        const labels = selectedPeriodVolumes.map((v) => v.timespan);
+
+        this.initChart(data, category.name, labels);
+      });
   }
 
   /**

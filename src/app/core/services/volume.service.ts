@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Category } from 'src/app/shared/models/category.model';
 
 import { map, tap } from 'rxjs/operators';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { Volume } from 'src/app/shared/models/volume.model';
 
 @Injectable({
@@ -11,7 +11,11 @@ import { Volume } from 'src/app/shared/models/volume.model';
 })
 export class VolumeService {
 
-  constructor(private http: HttpClient) { }
+  private selectedCategory: Subject<Category>;
+
+  constructor(private http: HttpClient) {
+    this.selectedCategory = new Subject();
+  }
 
   public getCategory(): Observable<Category> {
     return new Observable((observer) => {
@@ -43,5 +47,13 @@ export class VolumeService {
         )
         .subscribe();
     });
+  }
+
+  public setSelectedCategory(category: Category) {
+    this.selectedCategory.next(category);
+  }
+
+  public getSelectedCategory(): Observable<Category> {
+    return this.selectedCategory.asObservable();
   }
 }
